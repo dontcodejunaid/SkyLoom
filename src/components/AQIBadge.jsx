@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wind as WindIcon } from 'lucide-react';
-import { getAQIInfo } from '../utils/weatherUtils';
+import { Wind as WindIcon, X } from 'lucide-react';
+import { getAQIInfo, calculateUSAQI } from '../utils/weatherUtils';
 
 const AQIBadge = ({ airQuality }) => {
   const [open, setOpen] = useState(false);
   if (!airQuality?.list?.[0]) return null;
 
-  const { main: { aqi }, components } = airQuality.list[0];
-  const info = getAQIInfo(aqi);
+  const { components } = airQuality.list[0];
+  const realAQI = calculateUSAQI(components);
+  const info = getAQIInfo(realAQI);
 
   const pollutants = [
     { label: 'CO',   value: components.co?.toFixed(1),   unit: 'μg/m³' },
@@ -20,40 +21,56 @@ const AQIBadge = ({ airQuality }) => {
   ];
 
   return (
-    <div className="relative">
+    <div className="relative z-30">
       <button
         id="aqi-badge-btn"
         onClick={() => setOpen((p) => !p)}
-        className={`btn-pill ${info.class} gap-2`}
-        title="View air quality details"
+        className={`btn-pill ${info.class} gap-2 cursor-pointer shadow-md hover:scale-105 transition-all`}
+        title="Click for detailed Air Quality Index breakdown"
       >
-        <WindIcon className="w-3 h-3" />
-        AQI {aqi} · {info.label}
+        <WindIcon className="w-3.5 h-3.5" />
+        AQI {realAQI} · {info.label}
         <span className="text-xs">{info.emoji}</span>
       </button>
 
       <AnimatePresence>
         {open && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            {/* Backdrop overlay */}
+            <div className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-xs" onClick={() => setOpen(false)} />
+
+            {/* Solid Opaque Popover Card floating crisp & clear in front */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              initial={{ opacity: 0, scale: 0.92, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -8 }}
+              exit={{ opacity: 0, scale: 0.92, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="absolute top-full mt-2 left-0 z-50 glass rounded-2xl p-4 w-64 shadow-xl"
+              className="absolute top-full mt-2 left-0 z-[100] bg-slate-900 rounded-2xl p-5 w-80 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-slate-700/80"
             >
-              <div className="text-white font-semibold text-sm mb-1">Air Quality Index</div>
-              <div className={`inline-flex items-center gap-1.5 btn-pill text-xs mb-3 ${info.class}`}>
-                {info.emoji} {info.label} — AQI {aqi}
+              <div className="text-white font-bold text-sm mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <WindIcon className="w-4 h-4 text-sky-400" /> Air Quality Details
+                </span>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-white/50 text-xs mb-3">{info.desc}</p>
+
+              <div className={`inline-flex items-center gap-1.5 btn-pill text-xs mb-3 ${info.class}`}>
+                {info.emoji} {info.label} — AQI {realAQI}
+              </div>
+
+              <p className="text-white/80 text-xs mb-3.5 leading-relaxed">{info.desc}</p>
+
               <div className="grid grid-cols-2 gap-2">
                 {pollutants.map((p) => (
-                  <div key={p.label} className="bg-white/5 rounded-xl px-3 py-2">
-                    <div className="text-white/40 text-[10px] font-semibold">{p.label}</div>
-                    <div className="text-white text-sm font-bold">{p.value}</div>
-                    <div className="text-white/30 text-[9px]">{p.unit}</div>
+                  <div key={p.label} className="bg-slate-800/90 rounded-xl px-3 py-2 border border-slate-700/60">
+                    <div className="text-sky-300/70 text-[10px] font-semibold">{p.label}</div>
+                    <div className="text-white text-base font-bold">{p.value}</div>
+                    <div className="text-white/40 text-[9px]">{p.unit}</div>
                   </div>
                 ))}
               </div>

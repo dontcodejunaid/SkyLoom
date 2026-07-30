@@ -70,7 +70,7 @@ export const useWeather = () => {
 
   const fetchByCoords = useCallback((lat, lon) => fetchAll(lat, lon), [fetchAll]);
 
-  // IP Location Fallback — automatically gets user's city if GPS is denied or disabled
+  // IP Location Fallback — automatically gets user's city if GPS permission is disabled
   const fetchByIP = useCallback(async () => {
     try {
       const res = await fetch('https://ipapi.co/json/');
@@ -87,8 +87,8 @@ export const useWeather = () => {
     } catch (e) {
       console.warn('IP location fetch failed:', e);
     }
-    // Final fallback to New York if IP lookup fails
-    fetchByCity('New York');
+    // Default fallback if IP service is unreachable
+    fetchByCity('Bengaluru');
   }, [fetchAll, fetchByCity]);
 
   const searchCities = useCallback(async (query) => {

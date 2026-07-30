@@ -65,37 +65,17 @@ const WeatherApp = () => {
     catch {}
   }, [isDark]);
 
-  // Auto-detect current user location on initial mount (GPS first, fallback to IP)
-  const detectLocation = useCallback(() => {
+  // Initial load: detect user's current location via GPS or IP
+  useEffect(() => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          fetchByCoords(pos.coords.latitude, pos.coords.longitude);
-        },
-        (err) => {
-          console.warn('GPS permission denied or unavailable, using IP location:', err.message);
-          fetchByIP();
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 4000,
-          maximumAge: 300000,
-        }
+        (pos) => fetchByCoords(pos.coords.latitude, pos.coords.longitude),
+        () => fetchByIP(),
+        { timeout: 3500 }
       );
     } else {
       fetchByIP();
     }
-  }, [fetchByCoords, fetchByIP]);
-
-  useEffect(() => {
-    detectLocation();
-    // Safety fallback: if no weather loaded after 4.5 seconds, fetch default city
-    const timer = setTimeout(() => {
-      if (!weather) {
-        fetchByCity('London');
-      }
-    }, 4500);
-    return () => clearTimeout(timer);
   }, []);
 
   // Track recent searches
@@ -213,7 +193,6 @@ const WeatherApp = () => {
                   searchCities={searchCities}
                   favorites={favorites}
                   recentCities={recentCities}
-                  onLocationDetect={detectLocation}
                 />
               </div>
 
@@ -284,9 +263,9 @@ const WeatherApp = () => {
                 >
                   {/* AQI Badge Bar */}
                   {airQuality && (
-                    <div className="flex items-center justify-between gap-2 glass px-4 py-2 rounded-xl flex-wrap">
+                    <div className="relative z-20 flex items-center justify-between gap-2 glass px-4 py-2.5 rounded-xl flex-wrap">
                       <AQIBadge airQuality={airQuality} />
-                      <span className="text-white/40 text-xs font-medium">
+                      <span className="text-white/50 text-xs font-medium">
                         Live station feed: {weather.name}, {weather.sys.country}
                       </span>
                     </div>

@@ -10,7 +10,7 @@ const debounce = (fn, delay) => {
   };
 };
 
-const SearchBar = ({ onSearch, searchCities, favorites, recentCities, onLocationDetect }) => {
+const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -158,18 +158,6 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities, onLocation
               title="Clear search"
             >
               <X className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* GPS Location Auto-detect Button */}
-          {onLocationDetect && (
-            <button
-              type="button"
-              onClick={onLocationDetect}
-              className="p-1 text-white/40 hover:text-sky-300 transition-colors"
-              title="Detect my current location (GPS)"
-            >
-              <MapPin className="w-4 h-4" />
             </button>
           )}
 

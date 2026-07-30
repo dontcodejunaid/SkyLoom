@@ -93,16 +93,93 @@ export const getWeatherTheme = (conditionCode, isNight = false) => {
   };
 };
 
-// AQI index to label/color
-export const getAQIInfo = (aqi) => {
-  const levels = [
-    { label: 'Good',      class: 'aqi-good',      emoji: '😊', desc: 'Air quality is excellent.' },
-    { label: 'Fair',      class: 'aqi-fair',      emoji: '🙂', desc: 'Air quality is acceptable.' },
-    { label: 'Moderate',  class: 'aqi-moderate',  emoji: '😐', desc: 'Sensitive groups may be affected.' },
-    { label: 'Poor',      class: 'aqi-poor',      emoji: '😷', desc: 'Everyone may be affected.' },
-    { label: 'Very Poor', class: 'aqi-very-poor', emoji: '⚠️', desc: 'Health warnings for everyone.' },
-  ];
-  return levels[Math.min(aqi - 1, 4)] || levels[0];
+// Calculate 0–500 US EPA / CPCB standard AQI from PM2.5 pollutant concentration
+export const calculateUSAQI = (components) => {
+  if (!components) return 35;
+  const pm25 = components.pm2_5 || 0;
+  const pm10 = components.pm10 || 0;
+
+  // Linear interpolation for PM2.5 AQI breakpoint ranges
+  let pm25Aqi = 0;
+  if (pm25 <= 12.0) {
+    pm25Aqi = Math.round((50 / 12.0) * pm25);
+  } else if (pm25 <= 35.4) {
+    pm25Aqi = Math.round(51 + ((100 - 51) / (35.4 - 12.1)) * (pm25 - 12.1));
+  } else if (pm25 <= 55.4) {
+    pm25Aqi = Math.round(101 + ((150 - 101) / (55.4 - 35.5)) * (pm25 - 35.5));
+  } else if (pm25 <= 150.4) {
+    pm25Aqi = Math.round(151 + ((200 - 151) / (150.4 - 55.5)) * (pm25 - 55.5));
+  } else if (pm25 <= 250.4) {
+    pm25Aqi = Math.round(201 + ((300 - 201) / (250.4 - 150.5)) * (pm25 - 150.5));
+  } else {
+    pm25Aqi = Math.round(301 + ((500 - 301) / (500.0 - 250.5)) * (pm25 - 250.5));
+  }
+
+  // Linear interpolation for PM10
+  let pm10Aqi = 0;
+  if (pm10 <= 54) {
+    pm10Aqi = Math.round((50 / 54) * pm10);
+  } else if (pm10 <= 154) {
+    pm10Aqi = Math.round(51 + ((100 - 51) / (154 - 55)) * (pm10 - 55));
+  } else if (pm10 <= 254) {
+    pm10Aqi = Math.round(101 + ((150 - 101) / (254 - 155)) * (pm10 - 155));
+  } else {
+    pm10Aqi = Math.round(151 + ((200 - 151) / (354 - 255)) * (pm10 - 255));
+  }
+
+  return Math.min(Math.max(pm25Aqi, pm10Aqi), 500);
+};
+
+// Map AQI score (0–500) to human readable label & severity info
+export const getAQIInfo = (aqiValue) => {
+  const score = Number(aqiValue) || 30;
+
+  if (score <= 50) {
+    return {
+      label: 'Good',
+      class: 'aqi-good',
+      emoji: '😊',
+      desc: 'Air quality is satisfactory, and air pollution poses little or no risk.',
+    };
+  }
+  if (score <= 100) {
+    return {
+      label: 'Moderate',
+      class: 'aqi-fair',
+      emoji: '🙂',
+      desc: 'Air quality is acceptable. However, sensitive individuals may experience minor symptoms.',
+    };
+  }
+  if (score <= 150) {
+    return {
+      label: 'Unhealthy (Sensitive)',
+      class: 'aqi-moderate',
+      emoji: '😐',
+      desc: 'Members of sensitive groups may experience health effects.',
+    };
+  }
+  if (score <= 200) {
+    return {
+      label: 'Unhealthy',
+      class: 'aqi-poor',
+      emoji: '😷',
+      desc: 'Everyone may begin to experience health effects.',
+    };
+  }
+  if (score <= 300) {
+    return {
+      label: 'Very Unhealthy',
+      class: 'aqi-very-poor',
+      emoji: '⚠️',
+      desc: 'Health alert: everyone may experience more serious health effects.',
+    };
+  }
+  return {
+    label: 'Hazardous',
+    class: 'aqi-very-poor',
+    emoji: '🚨',
+    desc: 'Health warning of emergency conditions. The entire population is affected.',
+  };
 };
 
 // UV index severity

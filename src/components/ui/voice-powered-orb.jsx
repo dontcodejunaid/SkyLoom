@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Renderer, Program, Mesh, Triangle, Vec3 } from "ogl";
 import { cn } from "@/lib/utils";
+import { Mic } from "lucide-react";
 
 export const VoicePoweredOrb = ({
   className,
@@ -18,6 +19,7 @@ export const VoicePoweredOrb = ({
   const microphoneRef = useRef(null);
   const dataArrayRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const [webglSupported, setWebglSupported] = useState(true);
 
   const vert = /* glsl */ `
     precision highp float;
@@ -415,13 +417,9 @@ export const VoicePoweredOrb = ({
       };
 
     } catch (error) {
-      console.error("Error initializing Voice Powered Orb:", error);
-      if (container && container.firstChild) {
-        container.removeChild(container.firstChild);
-      }
-      return () => {
-        window.removeEventListener("resize", () => {});
-      };
+      console.warn("Error initializing Voice Powered Orb (WebGL fallback):", error);
+      setWebglSupported(false);
+      return () => {};
     }
   }, [
     hue,
@@ -451,6 +449,21 @@ export const VoicePoweredOrb = ({
       isMounted = false;
     };
   }, [enableVoiceControl]);
+
+  if (!webglSupported) {
+    return (
+      <button
+        onClick={onClick}
+        type="button"
+        className={cn(
+          "w-full h-full flex items-center justify-center rounded-full bg-purple-600/30 text-purple-200 hover:bg-purple-600/50 transition-all",
+          className
+        )}
+      >
+        <Mic className="w-4 h-4" />
+      </button>
+    );
+  }
 
   return (
     <div
