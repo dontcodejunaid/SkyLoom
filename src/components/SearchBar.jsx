@@ -222,9 +222,9 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
         </div>
       )}
 
-      {/* Dropdown */}
+      {/* Dropdown — solid opaque background to prevent cards bleeding through */}
       {showPanel && showDropdown && !isListening && (
-        <div className="absolute top-full mt-2 w-full z-50 glass rounded-2xl overflow-hidden py-2 animate-slide-down">
+        <div className="absolute top-full mt-2 w-full z-[100] bg-slate-900/95 backdrop-blur-xl rounded-2xl overflow-hidden py-2 shadow-2xl border border-slate-700/80 animate-slide-down">
 
           {/* City suggestions */}
           {suggestions.length > 0 && (
