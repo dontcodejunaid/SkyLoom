@@ -78,8 +78,8 @@ const WeatherApp = () => {
         },
         {
           enableHighAccuracy: true,
-          timeout: 6000,
-          maximumAge: 300000, // 5 minutes cache
+          timeout: 4000,
+          maximumAge: 300000,
         }
       );
     } else {
@@ -89,7 +89,14 @@ const WeatherApp = () => {
 
   useEffect(() => {
     detectLocation();
-  }, [detectLocation]);
+    // Safety fallback: if no weather loaded after 4.5 seconds, fetch default city
+    const timer = setTimeout(() => {
+      if (!weather) {
+        fetchByCity('London');
+      }
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Track recent searches
   const handleSearch = (city) => {
@@ -108,14 +115,14 @@ const WeatherApp = () => {
   };
 
   // Compute theme + condition identifiers
-  const conditionCode = weather?.weather[0].id ?? null;
+  const conditionCode = weather?.weather[0]?.id ?? 800;
   const isNightBool   = weather
     ? isNightTime(weather.dt, weather.sys.sunrise, weather.sys.sunset)
     : false;
 
   const theme = weather
     ? getWeatherTheme(conditionCode, isNightBool)
-    : { name: 'default', gradient: 'linear-gradient(160deg,#0f2027,#203a43)', accent: '#38bdf8', particle: 'none' };
+    : { name: 'default', gradient: 'linear-gradient(170deg, #0b3e70 0%, #1e90d8 100%)', accent: '#38bdf8', particle: 'none' };
 
   // Weather sounds & voice announcements (English, Hindi, Kannada)
   const { soundEnabled, toggleSound, soundLang, changeLanguage } = useWeatherSound(conditionCode, isNightBool, weather, unit);
@@ -175,7 +182,7 @@ const WeatherApp = () => {
 
   return (
     <>
-      {/* Weather-reactive background — driven by real condition code */}
+      {/* Weather-reactive background — always visible */}
       <WeatherBackground
         conditionCode={conditionCode}
         isNight={isNightBool}
@@ -261,8 +268,8 @@ const WeatherApp = () => {
               )}
             </AnimatePresence>
 
-            {/* Loading */}
-            {loading && !weather && <LoadingSkeleton />}
+            {/* Loading Skeleton — ALWAYS rendered when weather is not yet loaded */}
+            {(!weather || loading) && <LoadingSkeleton />}
 
             {/* Weather content */}
             {weather && (
