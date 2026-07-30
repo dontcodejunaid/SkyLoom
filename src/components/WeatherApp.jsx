@@ -103,8 +103,8 @@ const WeatherApp = () => {
     ? getWeatherTheme(conditionCode, isNightBool)
     : { name: 'default', gradient: 'linear-gradient(160deg,#0f2027,#203a43)', accent: '#38bdf8', particle: 'none' };
 
-  // Weather sounds & voice announcements
-  const { soundEnabled, toggleSound } = useWeatherSound(conditionCode, isNightBool, weather, unit);
+  // Weather sounds & voice announcements (English, Hindi, Kannada)
+  const { soundEnabled, toggleSound, soundLang, changeLanguage } = useWeatherSound(conditionCode, isNightBool, weather, unit);
 
   // Stats
   const stats = weather ? [
@@ -200,10 +200,12 @@ const WeatherApp = () => {
                 />
               </div>
 
-              {/* Sound toggle */}
+              {/* Sound toggle & Multi-language Voice Selector */}
               <SoundToggle
                 enabled={soundEnabled}
                 onToggle={toggleSound}
+                currentLang={soundLang}
+                onChangeLang={changeLanguage}
               />
 
               {/* Refresh */}

@@ -1,9 +1,60 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'skyloom_sound';
+const LANG_STORAGE_KEY = 'skyloom_sound_lang';
+
+export const LANGUAGES = [
+  { code: 'en', name: 'English', voiceLang: 'en-US', label: 'EN' },
+  { code: 'hi', name: 'हिंदी (Hindi)', voiceLang: 'hi-IN', label: 'HI' },
+];
+
+// Weather condition translations for English and Hindi
+const CONDITION_TRANSLATIONS = {
+  en: {
+    clear: 'clear sky',
+    few_clouds: 'few clouds',
+    scattered_clouds: 'scattered clouds',
+    broken_clouds: 'broken clouds',
+    overcast: 'overcast clouds',
+    rain: 'rainy weather',
+    drizzle: 'light drizzle',
+    thunderstorm: 'thunderstorm',
+    snow: 'snowfall',
+    mist: 'misty atmosphere',
+    fog: 'foggy weather',
+    haze: 'hazy weather',
+  },
+  hi: {
+    clear: 'साफ़ आसमान',
+    few_clouds: 'थोड़े बादल',
+    scattered_clouds: 'छिटपुट बादल',
+    broken_clouds: 'घने बादल',
+    overcast: 'बादल छाए हुए हैं',
+    rain: 'बारिश का मौसम',
+    drizzle: 'हल्की बूंदाबांदी',
+    thunderstorm: 'गरज के साथ तूफ़ान',
+    snow: 'बर्फबारी',
+    mist: 'धुंध का माहौल',
+    fog: 'कोहरा',
+    haze: 'धुंध',
+  },
+};
+
+const getTranslatedDescription = (mainDesc, code, lang) => {
+  const dict = CONDITION_TRANSLATIONS[lang] || CONDITION_TRANSLATIONS.en;
+
+  if (code >= 200 && code < 300) return dict.thunderstorm;
+  if (code >= 300 && code < 400) return dict.drizzle;
+  if (code >= 500 && code < 600) return dict.rain;
+  if (code >= 600 && code < 700) return dict.snow;
+  if (code >= 700 && code < 800) return dict.fog;
+  if (code === 800) return dict.clear;
+  if (code <= 802) return dict.few_clouds;
+  return dict.overcast;
+};
 
 // ─── Voice Weather Announcer (Speech Synthesis) ──────────────────────────────
-export const speakWeatherAnnouncement = (weatherData, unit = 'C') => {
+export const speakWeatherAnnouncement = (weatherData, unit = 'C', lang = 'en') => {
   if (!('speechSynthesis' in window) || !weatherData) return;
 
   try {
@@ -11,19 +62,43 @@ export const speakWeatherAnnouncement = (weatherData, unit = 'C') => {
 
     const city = weatherData.name;
     const temp = Math.round(weatherData.main.temp);
-    const description = weatherData.weather[0]?.description || 'clear';
+    const code = weatherData.weather[0]?.id || 800;
+    const mainDesc = weatherData.weather[0]?.description || 'clear';
+    const conditionText = getTranslatedDescription(mainDesc, code, lang);
 
-    const text = `Currently in ${city}, it's ${temp} degrees ${unit === 'C' ? 'Celsius' : 'Fahrenheit'} with ${description}.`;
+    let text = '';
+    let voiceTargetLang = 'en-US';
+
+    if (lang === 'hi') {
+      voiceTargetLang = 'hi-IN';
+      const unitText = unit === 'C' ? 'सेलसियस' : 'फ़ारेनहाइट';
+      text = `${city} में अभी तापमान ${temp} डिग्री ${unitText} है, और ${conditionText} है।`;
+    } else {
+      voiceTargetLang = 'en-US';
+      const unitText = unit === 'C' ? 'Celsius' : 'Fahrenheit';
+      text = `Currently in ${city}, it's ${temp} degrees ${unitText} with ${conditionText}.`;
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.95;
     utterance.pitch = 1.0;
-    utterance.volume = 0.9;
+    utterance.volume = 0.95;
 
-    // Pick a natural English voice if available
+    // Match voice for the target language (Hindi, Kannada, or English)
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')));
-    if (englishVoice) utterance.voice = englishVoice;
+    let voice = voices.find(v => v.lang.toLowerCase().startsWith(voiceTargetLang.toLowerCase()));
+
+    // Fallback to any voice starting with language code (e.g., 'hi' or 'kn')
+    if (!voice) {
+      voice = voices.find(v => v.lang.toLowerCase().startsWith(lang));
+    }
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    } else {
+      utterance.lang = voiceTargetLang;
+    }
 
     window.speechSynthesis.speak(utterance);
   } catch (err) {
@@ -33,14 +108,14 @@ export const speakWeatherAnnouncement = (weatherData, unit = 'C') => {
 
 // ─── Condition code → sound type ─────────────────────────────────────────────
 const getSoundType = (code, isNight) => {
-  if (!code) return 'crickets-day';
+  if (!code) return 'breeze';
   if (code >= 200 && code < 300) return 'thunderstorm';
   if (code >= 300 && code < 400) return 'drizzle';
   if (code >= 500 && code < 600) return 'rain';
   if (code >= 600 && code < 700) return 'snow';
   if (code >= 700 && code < 800) return 'wind';
-  if (code === 800) return isNight ? 'crickets-night' : 'crickets-day';
-  return 'crickets-day';
+  if (code === 800) return 'breeze';
+  return 'breeze';
 };
 
 // ─── White/Brown noise buffer generator ──────────────────────────────────────
@@ -51,7 +126,6 @@ const mkNoise = (ctx, seconds = 3, type = 'white') => {
   if (type === 'white') {
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
   } else {
-    // Brown noise
     let last = 0;
     for (let i = 0; i < n; i++) {
       const w = Math.random() * 2 - 1;
@@ -70,15 +144,14 @@ const mkNoiseSource = (ctx, type = 'white', seconds = 3) => {
   return src;
 };
 
-// ─── REALISTIC RAIN ENGINE (Noise + Random Droplet Pitter-Patter) ────────────
+// ─── RAIN ENGINE ─────────────────────────────────────────────────────────────
 const startRain = (ctx, dest, vol = 0.8, timers = []) => {
   const nodes = [];
 
-  // 1. Continuous rain rush (filtered noise)
   const src = mkNoiseSource(ctx, 'white', 4);
   const lp = ctx.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.value = 1200; // Crisp rain rumble
+  lp.frequency.value = 1200;
 
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass';
@@ -94,7 +167,6 @@ const startRain = (ctx, dest, vol = 0.8, timers = []) => {
   src.start();
   nodes.push(src, lp, hp, mainGain);
 
-  // 2. Individual droplet click taps (pitter-patter effect)
   const scheduleDropClick = () => {
     try {
       const osc = ctx.createOscillator();
@@ -125,14 +197,12 @@ const startRain = (ctx, dest, vol = 0.8, timers = []) => {
   return nodes;
 };
 
-// ─── DRIZZLE ENGINE ──────────────────────────────────────────────────────────
 const startDrizzle = (ctx, dest, timers) => startRain(ctx, dest, 0.45, timers);
 
 // ─── THUNDERSTORM ENGINE ──────────────────────────────────────────────────────
 const startThunderstorm = (ctx, dest, timers) => {
   const nodes = [...startRain(ctx, dest, 0.9, timers)];
 
-  // Low thunder rumbles
   const rumble = () => {
     try {
       const src = mkNoiseSource(ctx, 'brown', 5);
@@ -162,70 +232,7 @@ const startThunderstorm = (ctx, dest, timers) => {
   return nodes;
 };
 
-// ─── CRICKETS & INSECTS ENGINE (Sunny / Clear Day & Night) ───────────────────
-const startCricketsAndInsects = (ctx, dest, isNight = false, timers = []) => {
-  const nodes = [];
-
-  // 1. Continuous cricket chirping (pulsed high-pitch oscillator)
-  const cricketOsc = ctx.createOscillator();
-  cricketOsc.type = 'sine';
-  cricketOsc.frequency.value = isNight ? 4500 : 5200;
-
-  const lfo = ctx.createOscillator();
-  lfo.type = 'square';
-  lfo.frequency.value = isNight ? 22 : 14;
-
-  const lfoGain = ctx.createGain();
-  lfoGain.gain.value = 0.08;
-
-  const mainGain = ctx.createGain();
-  mainGain.gain.value = 0.15;
-
-  lfo.connect(lfoGain);
-  lfoGain.connect(mainGain.gain);
-
-  cricketOsc.connect(mainGain);
-  mainGain.connect(dest);
-
-  cricketOsc.start();
-  lfo.start();
-  nodes.push(cricketOsc, lfo, lfoGain, mainGain);
-
-  // 2. Daytime bird chirps / night insect bursts
-  const scheduleChirp = () => {
-    try {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      const now = ctx.currentTime;
-      const baseFreq = isNight ? (3800 + Math.random() * 1000) : (2400 + Math.random() * 1600);
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(baseFreq, now);
-      osc.frequency.linearRampToValueAtTime(baseFreq * 1.5, now + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq, now + 0.12);
-
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.08, now + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-      osc.connect(g);
-      g.connect(dest);
-
-      osc.start(now);
-      osc.stop(now + 0.16);
-      nodes.push(osc, g);
-    } catch (e) {}
-
-    const interval = isNight ? (1200 + Math.random() * 2500) : (1800 + Math.random() * 3500);
-    const t = setTimeout(scheduleChirp, interval);
-    timers.push(t);
-  };
-
-  scheduleChirp();
-  return nodes;
-};
-
-// ─── WIND ENGINE ─────────────────────────────────────────────────────────────
+// ─── WIND & BREEZE ENGINE ───────────────────────────────────────────────────
 const startWind = (ctx, dest, vol = 0.35) => {
   const nodes = [];
   const src = mkNoiseSource(ctx, 'brown', 4);
@@ -257,12 +264,18 @@ const startWind = (ctx, dest, vol = 0.35) => {
 };
 
 const startSnow = (ctx, dest) => startWind(ctx, dest, 0.2);
+const startBreeze = (ctx, dest) => startWind(ctx, dest, 0.12);
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C') => {
   const [enabled, setEnabled] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) === 'true'; }
     catch { return false; }
+  });
+
+  const [soundLang, setSoundLang] = useState(() => {
+    try { return localStorage.getItem(LANG_STORAGE_KEY) || 'en'; }
+    catch { return 'en'; }
   });
 
   const ctxRef = useRef(null);
@@ -286,7 +299,7 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
       if (!AudioCtx) return false;
       ctxRef.current = new AudioCtx();
       masterRef.current = ctxRef.current.createGain();
-      masterRef.current.gain.value = 0.9; // Master volume boost
+      masterRef.current.gain.value = 0.9;
       masterRef.current.connect(ctxRef.current.destination);
     }
     if (ctxRef.current.state === 'suspended') {
@@ -308,7 +321,7 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
     const t = timersRef.current;
     let newNodes = [];
 
-    const soundType = type || 'crickets-day';
+    const soundType = type || 'breeze';
 
     switch (soundType) {
       case 'rain':
@@ -326,14 +339,11 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
       case 'wind':
         newNodes = startWind(ctx, dest, 0.45);
         break;
-      case 'crickets-day':
-        newNodes = startCricketsAndInsects(ctx, dest, false, t);
-        break;
-      case 'crickets-night':
-        newNodes = startCricketsAndInsects(ctx, dest, true, t);
+      case 'breeze':
+        newNodes = startBreeze(ctx, dest);
         break;
       default:
-        newNodes = startCricketsAndInsects(ctx, dest, false, t);
+        newNodes = startBreeze(ctx, dest);
         break;
     }
     nodesRef.current = newNodes;
@@ -348,12 +358,21 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
     return stopAll;
   }, [conditionCode, isNight, enabled, ensureCtx, startSound, stopAll]);
 
-  // Voice speech announcement on city load if sound is enabled
+  // Voice speech announcement on city load or language change if sound is enabled
   useEffect(() => {
     if (enabled && weatherData) {
-      speakWeatherAnnouncement(weatherData, unit);
+      speakWeatherAnnouncement(weatherData, unit, soundLang);
     }
-  }, [weatherData?.name, enabled]);
+  }, [weatherData?.name, enabled, soundLang]);
+
+  const changeLanguage = useCallback((newLang) => {
+    setSoundLang(newLang);
+    try { localStorage.setItem(LANG_STORAGE_KEY, newLang); } catch {}
+
+    if (enabled && weatherData) {
+      speakWeatherAnnouncement(weatherData, unit, newLang);
+    }
+  }, [enabled, weatherData, unit]);
 
   const toggle = useCallback(() => {
     setEnabled(prev => {
@@ -365,7 +384,7 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
         const type = getSoundType(conditionCode, isNight);
         startSound(type);
         if (weatherData) {
-          speakWeatherAnnouncement(weatherData, unit);
+          speakWeatherAnnouncement(weatherData, unit, soundLang);
         }
       } else {
         stopAll();
@@ -376,7 +395,7 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
       }
       return next;
     });
-  }, [conditionCode, isNight, weatherData, unit, ensureCtx, startSound, stopAll]);
+  }, [conditionCode, isNight, weatherData, unit, soundLang, ensureCtx, startSound, stopAll]);
 
   useEffect(() => {
     return () => {
@@ -386,5 +405,10 @@ export const useWeatherSound = (conditionCode, isNight, weatherData, unit = 'C')
     };
   }, [stopAll]);
 
-  return { soundEnabled: enabled, toggleSound: toggle };
+  return {
+    soundEnabled: enabled,
+    toggleSound: toggle,
+    soundLang,
+    changeLanguage,
+  };
 };
