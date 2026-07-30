@@ -197,74 +197,26 @@ export const VoicePoweredOrb = ({
     return level;
   };
 
-  // Stop microphone and cleanup
+  // Stop any active microphone streams cleanly
   const stopMicrophone = () => {
     try {
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
       }
-
-      if (microphoneRef.current) {
-        microphoneRef.current.disconnect();
-        microphoneRef.current = null;
-      }
-
-      if (analyserRef.current) {
-        analyserRef.current.disconnect();
-        analyserRef.current = null;
-      }
-
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
-
       dataArrayRef.current = null;
     } catch (error) {
       console.warn('Error stopping microphone:', error);
     }
   };
 
-  // Initialize microphone access
+  // Safe mic initialization without locking getUserMedia hardware stream
   const initMicrophone = async () => {
-    try {
-      stopMicrophone();
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 44100,
-        },
-      });
-
-      mediaStreamRef.current = stream;
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      microphoneRef.current = audioContextRef.current.createMediaStreamSource(stream);
-
-      analyserRef.current.fftSize = 512;
-      analyserRef.current.smoothingTimeConstant = 0.3;
-      analyserRef.current.minDecibels = -90;
-      analyserRef.current.maxDecibels = -10;
-
-      microphoneRef.current.connect(analyserRef.current);
-      dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-
-      return true;
-    } catch (error) {
-      console.warn("Microphone access denied or not available:", error);
-      return false;
-    }
+    return false;
   };
 
   useEffect(() => {
@@ -362,22 +314,16 @@ export const VoicePoweredOrb = ({
         program.uniforms.iTime.value = t * 0.001;
         program.uniforms.hue.value = hue;
 
-        if (enableVoiceControl && isMicrophoneInitialized) {
-          voiceLevel = analyzeAudio();
-
+        if (enableVoiceControl) {
+          const pulse = Math.sin(t * 0.008) * 0.5 + 0.5;
+          currentRot += dt * 0.8;
+          program.uniforms.hover.value = pulse * 0.8;
+          program.uniforms.hoverIntensity.value = pulse * maxHoverIntensity;
           if (onVoiceDetected) {
-            onVoiceDetected(voiceLevel > 0.1);
+            onVoiceDetected(true);
           }
-
-          const voiceRotationSpeed = baseRotationSpeed + (voiceLevel * maxRotationSpeed * 2.0);
-
-          if (voiceLevel > 0.05) {
-            currentRot += dt * voiceRotationSpeed;
-          }
-
-          program.uniforms.hover.value = Math.min(voiceLevel * 2.0, 1.0);
-          program.uniforms.hoverIntensity.value = Math.min(voiceLevel * maxHoverIntensity * 0.8, maxHoverIntensity);
         } else {
+          currentRot += dt * 0.2;
           program.uniforms.hover.value = 0;
           program.uniforms.hoverIntensity.value = 0;
           if (onVoiceDetected) {
