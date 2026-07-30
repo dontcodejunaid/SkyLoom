@@ -31,6 +31,7 @@ export default {
         'slide-down': 'slideDown 0.3s ease-out forwards',
         'glow': 'glow 3s ease-in-out infinite',
         'lightning': 'lightning 4s ease-in-out infinite',
+        'shooting-star': 'shooting-star 7s linear infinite',
       },
       keyframes: {
         float: {
@@ -69,6 +70,13 @@ export default {
           '0%, 90%, 100%': { opacity: '0' },
           '92%, 96%': { opacity: '0.8' },
           '94%': { opacity: '0' },
+        },
+        'shooting-star': {
+          '0%':   { transform: 'translateX(-80px) translateY(0px) rotate(20deg)', opacity: '0' },
+          '5%':   { opacity: '1' },
+          '30%':  { transform: 'translateX(110vw) translateY(60px) rotate(20deg)', opacity: '0.8' },
+          '31%':  { opacity: '0' },
+          '100%': { opacity: '0' },
         },
       },
       boxShadow: {

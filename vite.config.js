@@ -9,11 +9,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 700,
+    chunkSizeWarningLimit: 800,
   },
   resolve: {
-    // Ensure styled-components and all other libraries share the SAME React instance
     alias: {
+      '@': path.resolve(__dirname, 'src'),
       react: path.resolve(__dirname, 'node_modules/react'),
       'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
     },

@@ -9,6 +9,7 @@ import { useWeather } from '../hooks/useWeather';
 import { useFavorites } from '../hooks/useFavorites';
 import { getWeatherTheme, getUVInfo, getWindDirection, isNightTime } from '../utils/weatherUtils';
 import { formatTemp, formatVisibility } from '../utils/formatters';
+import { useWeatherSound } from '../hooks/useWeatherSound';
 
 import WeatherBackground from './WeatherBackground';
 import SearchBar from './SearchBar';
@@ -19,6 +20,7 @@ import AQIBadge from './AQIBadge';
 import HourlyChart from './HourlyChart';
 import ForecastRow from './ForecastRow';
 import SkyToggle from './ui/sky-toggle';
+import SoundToggle from './SoundToggle';
 
 // Skeleton placeholder
 const Skeleton = ({ className }) => (
@@ -90,13 +92,18 @@ const WeatherApp = () => {
     else addFavorite(city);
   };
 
-  // Compute theme
+  // Compute theme + condition identifiers
+  const conditionCode = weather?.weather[0].id ?? null;
+  const isNightBool   = weather
+    ? isNightTime(weather.dt, weather.sys.sunrise, weather.sys.sunset)
+    : false;
+
   const theme = weather
-    ? getWeatherTheme(
-        weather.weather[0].id,
-        isNightTime(weather.dt, weather.sys.sunrise, weather.sys.sunset)
-      )
+    ? getWeatherTheme(conditionCode, isNightBool)
     : { name: 'default', gradient: 'linear-gradient(160deg,#0f2027,#203a43)', accent: '#38bdf8', particle: 'none' };
+
+  // Weather sounds & voice announcements
+  const { soundEnabled, toggleSound } = useWeatherSound(conditionCode, isNightBool, weather, unit);
 
   // Stats
   const stats = weather ? [
@@ -153,12 +160,17 @@ const WeatherApp = () => {
 
   return (
     <>
-      <WeatherBackground theme={theme} />
+      {/* Weather-reactive background — driven by real condition code */}
+      <WeatherBackground
+        conditionCode={conditionCode}
+        isNight={isNightBool}
+        accent={theme.accent}
+      />
 
       {/* Night-mode overlay — deepens background when night toggle is on */}
       <div
         className="fixed inset-0 z-0 pointer-events-none transition-all duration-700"
-        style={{ background: isDark ? 'rgba(5, 8, 25, 0.55)' : 'transparent' }}
+        style={{ background: isDark ? 'rgba(5, 8, 25, 0.25)' : 'transparent' }}
       />
 
       {/* App shell */}
@@ -187,6 +199,12 @@ const WeatherApp = () => {
                   onChange={setIsDark}
                 />
               </div>
+
+              {/* Sound toggle */}
+              <SoundToggle
+                enabled={soundEnabled}
+                onToggle={toggleSound}
+              />
 
               {/* Refresh */}
               <button
