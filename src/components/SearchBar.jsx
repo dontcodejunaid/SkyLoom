@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, MapPin, Star, Clock, X, Mic } from 'lucide-react';
+import { Search, X, Mic, MicOff } from 'lucide-react';
 import { VoicePoweredOrb } from './ui/voice-powered-orb';
 
 const debounce = (fn, delay) => {
-  let t;
+  let timer;
   return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
   };
 };
 
@@ -46,22 +46,30 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
       }
     };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
   }, []);
 
-  // Web Speech Recognition setup
-  const startVoiceSearch = () => {
+  // Web Speech Recognition setup optimized for Mobile (iOS & Android) + Desktop
+  const startVoiceSearch = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Voice search is not supported in your browser. Please use Chrome, Edge, or Safari.");
+      alert("Voice search is not supported in this browser. Please use Chrome or Safari on mobile.");
       return;
     }
 
     if (isListening) {
-      // Toggle off if already listening
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try { recognitionRef.current.stop(); } catch {}
       }
       setIsListening(false);
       return;
@@ -69,9 +77,12 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
 
     try {
       const recognition = new SpeechRecognition();
+      
+      // Mobile Safari / iOS optimization
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.interimResults = !isIOS;
+      recognition.lang = navigator.language || 'en-US';
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -83,8 +94,10 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
           .map(result => result[0].transcript)
           .join('');
 
-        setQuery(text);
-        setTranscriptText(text);
+        if (text && text.trim()) {
+          setQuery(text);
+          setTranscriptText(text);
+        }
       };
 
       recognition.onerror = (event) => {
@@ -95,10 +108,12 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
 
       recognition.onend = () => {
         setIsListening(false);
-        // Automatically search if query was set
         setQuery(prev => {
           if (prev && prev !== 'Listening...') {
-            onSearch(prev.replace(/[.#$%]/g, '').trim());
+            const cleanQuery = prev.replace(/[.#$%!?]/g, '').trim();
+            if (cleanQuery) {
+              onSearch(cleanQuery);
+            }
           }
           return prev === 'Listening...' ? '' : prev;
         });
@@ -143,8 +158,8 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setShowDropdown(true); }}
           onFocus={() => { setFocused(true); setShowDropdown(true); }}
-          placeholder={isListening ? (transcriptText || "Listening to your voice...") : "Search city or click Orb..."}
-          className={`search-input pl-11 pr-20 ${isListening ? 'border-purple-400/60 bg-purple-900/20 text-purple-200 placeholder-purple-300/60' : ''}`}
+          placeholder={isListening ? (transcriptText || "Listening to your voice...") : "Search city or tap mic..."}
+          className={`search-input pl-11 pr-24 ${isListening ? 'border-purple-400/60 bg-purple-900/20 text-purple-200 placeholder-purple-300/60' : ''}`}
           id="city-search-input"
           autoComplete="off"
         />
@@ -161,10 +176,27 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
             </button>
           )}
 
-          {/* Interactive Voice Orb Button */}
+          {/* Dedicated Mobile-friendly Voice Button */}
+          <button
+            type="button"
+            onClick={startVoiceSearch}
+            onTouchEnd={startVoiceSearch}
+            className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+              isListening
+                ? 'bg-purple-500 text-white animate-pulse shadow-lg shadow-purple-500/50'
+                : 'text-white/50 hover:text-purple-300 hover:bg-white/10 active:scale-95'
+            }`}
+            title={isListening ? "Listening... Speak city name (Tap to stop)" : "Tap for Voice Search"}
+          >
+            {isListening ? <MicOff className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4" />}
+          </button>
+
+          {/* Interactive Voice Orb */}
           <div
-            className="w-7 h-7 flex items-center justify-center"
-            title={isListening ? "Listening... Speak city name (Click to stop)" : "Click Orb for Voice Search"}
+            className="w-7 h-7 flex items-center justify-center cursor-pointer"
+            onClick={startVoiceSearch}
+            onTouchEnd={startVoiceSearch}
+            title={isListening ? "Listening... Speak city name" : "Voice Search Orb"}
           >
             <div className={`w-7 h-7 rounded-full overflow-hidden transition-all duration-300 ${isListening ? 'ring-2 ring-purple-400 scale-110 shadow-lg shadow-purple-500/40' : 'hover:scale-110 opacity-90 hover:opacity-100'}`}>
               <VoicePoweredOrb
@@ -181,12 +213,12 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
 
       {/* Voice status pill when listening */}
       {isListening && (
-        <div className="absolute top-full mt-1 left-4 flex items-center gap-2 text-xs text-purple-300 bg-purple-950/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-purple-500/30 z-50 animate-fade-up">
-          <span className="flex h-2 w-2 relative">
+        <div className="absolute top-full mt-1.5 left-2 right-2 sm:left-4 sm:right-auto flex items-center gap-2 text-xs text-purple-300 bg-purple-950/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-purple-500/40 z-50 shadow-xl animate-fade-up">
+          <span className="flex h-2 w-2 relative shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
           </span>
-          <span>{voiceDetected ? "Voice detected! Listening..." : "Listening... Speak a city name"}</span>
+          <span className="truncate">{voiceDetected ? "Voice detected! Listening..." : "Listening... Speak a city name"}</span>
         </div>
       )}
 
@@ -199,49 +231,46 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
             <div>
               {suggestions.map((city, i) => (
                 <button
-                  key={i}
-                  type="button"
+                  key={`${city.lat}-${city.lon}-${i}`}
                   onClick={() => handleSelect(city)}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-white/10 transition-colors text-white/90 text-sm"
+                  className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-white/10 text-white/90 text-sm transition-colors"
                 >
-                  <MapPin className="w-4 h-4 text-sky-400 shrink-0" />
-                  <span>{city.name}, <span className="text-white/50">{city.country}</span></span>
+                  <span className="font-medium">{city.name}</span>
+                  <span className="text-white/40 text-xs">{city.state ? `${city.state}, ` : ''}{city.country}</span>
                 </button>
               ))}
             </div>
           )}
 
           {/* Favorites */}
-          {suggestions.length === 0 && favorites.length > 0 && (
-            <div className="px-2 py-1">
-              <div className="px-3 py-1 text-[11px] font-semibold text-white/40 uppercase tracking-wider">Favorites</div>
-              {favorites.map((city, i) => (
+          {favorites.length > 0 && (
+            <div className="border-t border-white/10 pt-2 mt-2">
+              <div className="px-4 py-1 text-xs font-semibold text-white/40 uppercase tracking-wider">Favorites</div>
+              {favorites.map((fav) => (
                 <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSelect(city)}
-                  className="w-full px-3 py-2 flex items-center gap-2.5 rounded-xl hover:bg-white/10 transition-colors text-white/90 text-sm text-left"
+                  key={fav.name}
+                  onClick={() => handleSelect(fav)}
+                  className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-white/10 text-white/80 text-sm transition-colors"
                 >
-                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                  <span>{city.name}, <span className="text-white/50">{city.country}</span></span>
+                  <span>⭐ {fav.name}</span>
+                  <span className="text-white/40 text-xs">{fav.country}</span>
                 </button>
               ))}
             </div>
           )}
 
-          {/* Recents */}
-          {suggestions.length === 0 && recentCities.length > 0 && (
-            <div className="px-2 py-1 border-t border-white/10">
-              <div className="px-3 py-1 text-[11px] font-semibold text-white/40 uppercase tracking-wider">Recent Searches</div>
-              {recentCities.map((city, i) => (
+          {/* Recent */}
+          {recentCities.length > 0 && (
+            <div className="border-t border-white/10 pt-2 mt-2">
+              <div className="px-4 py-1 text-xs font-semibold text-white/40 uppercase tracking-wider">Recent</div>
+              {recentCities.map((rec) => (
                 <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSelect(city)}
-                  className="w-full px-3 py-2 flex items-center gap-2.5 rounded-xl hover:bg-white/10 transition-colors text-white/90 text-sm text-left"
+                  key={rec.name}
+                  onClick={() => handleSelect(rec)}
+                  className="w-full px-4 py-2 flex items-center justify-between text-left hover:bg-white/10 text-white/70 text-sm transition-colors"
                 >
-                  <Clock className="w-3.5 h-3.5 text-white/40 shrink-0" />
-                  <span>{city.name}, <span className="text-white/50">{city.country}</span></span>
+                  <span>🕒 {rec.name}</span>
+                  <span className="text-white/40 text-xs">{rec.country}</span>
                 </button>
               ))}
             </div>
