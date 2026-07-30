@@ -21,6 +21,7 @@ import HourlyChart from './HourlyChart';
 import ForecastRow from './ForecastRow';
 import SkyToggle from './ui/sky-toggle';
 import SoundToggle from './SoundToggle';
+import { SkyLoomLogo } from './SkyLoomLogo';
 
 // Skeleton placeholder
 const Skeleton = ({ className }) => (
@@ -179,10 +180,9 @@ const WeatherApp = () => {
         <header className="sticky top-0 z-30 px-4 pt-4 pb-3">
           <div className="max-w-3xl mx-auto">
             <div className="glass rounded-2xl px-5 py-3 flex items-center gap-3">
-              {/* Logo */}
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="text-2xl">🌤</div>
-                <span className="text-white font-bold text-lg tracking-tight hidden sm:block">SkyLoom</span>
+              {/* Official Woven SkyLoom Logo */}
+              <div className="shrink-0">
+                <SkyLoomLogo size="md" />
               </div>
               <div className="flex-1">
                 <SearchBar
