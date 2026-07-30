@@ -18,16 +18,16 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="glass rounded-3xl p-6 md:p-8 relative overflow-hidden"
+      className="glass rounded-3xl p-5 sm:p-7 md:p-8 relative overflow-hidden"
     >
       {/* Top row */}
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <div className="flex items-center gap-2 text-white/60 text-sm font-medium">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{name}, {sys.country}</span>
+          <div className="flex items-center gap-2 text-white/70 text-sm font-medium">
+            <MapPin className="w-4 h-4 text-sky-300" />
+            <span className="font-semibold text-base sm:text-lg text-white">{name}, {sys.country}</span>
           </div>
-          <div className="text-white/40 text-xs mt-0.5">{date} • {localTime}</div>
+          <div className="text-white/50 text-xs mt-0.5">{date} • {localTime}</div>
         </div>
         <div className="flex items-center gap-2">
           {/* Favorite toggle */}
@@ -39,12 +39,12 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
           >
             <Star
               className={`w-4 h-4 transition-all duration-200 ${
-                isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-white/30'
+                isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-white/40 hover:text-white'
               }`}
             />
           </button>
           {/* Unit toggle */}
-          <div className="flex items-center gap-1 glass rounded-full px-1 py-1">
+          <div className="flex items-center gap-1 glass rounded-full px-1.5 py-1">
             <button
               id="unit-celsius-btn"
               className={`unit-btn ${unit === 'C' ? 'active' : ''}`}
@@ -60,7 +60,7 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
       </div>
 
       {/* Main content */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <AnimatePresence mode="wait">
             <motion.div
@@ -69,15 +69,15 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.25 }}
-              className="text-[5.5rem] md:text-[7rem] font-bold leading-none text-white text-shadow tracking-tighter"
+              className="text-6xl sm:text-7xl md:text-8xl lg:text-[6.5rem] font-bold leading-none text-white text-shadow tracking-tighter"
             >
               {temp}
             </motion.div>
           </AnimatePresence>
-          <div className="mt-1 text-white/80 text-lg font-medium capitalize text-shadow-sm">
+          <div className="mt-2 text-white/90 text-base sm:text-xl font-medium capitalize text-shadow-sm">
             {capitalize(condition.description)}
           </div>
-          <div className="mt-0.5 text-white/50 text-sm">
+          <div className="mt-1 text-white/60 text-xs sm:text-sm">
             Feels like {feelsLike}
           </div>
         </div>
@@ -86,7 +86,7 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
         <motion.div
           animate={{ y: [0, -8, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          className="relative"
+          className="relative shrink-0"
         >
           <div
             className="absolute inset-0 rounded-full blur-2xl opacity-50 scale-75"
@@ -95,7 +95,7 @@ const HeroCard = ({ weather, unit, onToggleUnit, isFavorite, onToggleFavorite, t
           <img
             src={getIconUrl(condition.icon)}
             alt={condition.description}
-            className="w-28 h-28 md:w-36 md:h-36 relative z-10 drop-shadow-xl"
+            className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 relative z-10 drop-shadow-xl"
             style={{ filter: `drop-shadow(0 0 20px ${theme.accent}80)` }}
           />
         </motion.div>

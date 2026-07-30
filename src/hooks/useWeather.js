@@ -70,6 +70,27 @@ export const useWeather = () => {
 
   const fetchByCoords = useCallback((lat, lon) => fetchAll(lat, lon), [fetchAll]);
 
+  // IP Location Fallback — automatically gets user's city if GPS is denied or disabled
+  const fetchByIP = useCallback(async () => {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      if (res.ok) {
+        const ipData = await res.json();
+        if (ipData.latitude && ipData.longitude) {
+          await fetchAll(ipData.latitude, ipData.longitude);
+          return;
+        } else if (ipData.city) {
+          await fetchByCity(ipData.city);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('IP location fetch failed:', e);
+    }
+    // Final fallback to New York if IP lookup fails
+    fetchByCity('New York');
+  }, [fetchAll, fetchByCity]);
+
   const searchCities = useCallback(async (query) => {
     if (!query || query.length < 2) return [];
     try {
@@ -82,5 +103,5 @@ export const useWeather = () => {
     }
   }, []);
 
-  return { weather, forecast, airQuality, loading, error, fetchByCity, fetchByCoords, searchCities };
+  return { weather, forecast, airQuality, loading, error, fetchByCity, fetchByCoords, fetchByIP, searchCities };
 };

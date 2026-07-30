@@ -10,7 +10,7 @@ const debounce = (fn, delay) => {
   };
 };
 
-const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
+const SearchBar = ({ onSearch, searchCities, favorites, recentCities, onLocationDetect }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -144,34 +144,49 @@ const SearchBar = ({ onSearch, searchCities, favorites, recentCities }) => {
           onChange={(e) => { setQuery(e.target.value); setShowDropdown(true); }}
           onFocus={() => { setFocused(true); setShowDropdown(true); }}
           placeholder={isListening ? (transcriptText || "Listening to your voice...") : "Search city or click Orb..."}
-          className={`search-input pl-11 pr-24 ${isListening ? 'border-purple-400/60 bg-purple-900/20 text-purple-200 placeholder-purple-300/60' : ''}`}
+          className={`search-input pl-11 pr-20 ${isListening ? 'border-purple-400/60 bg-purple-900/20 text-purple-200 placeholder-purple-300/60' : ''}`}
           id="city-search-input"
           autoComplete="off"
         />
 
-        {query && (
-          <button
-            type="button"
-            onClick={() => { setQuery(''); setSuggestions([]); }}
-            className="absolute right-12 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors z-10"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
+          {query && (
+            <button
+              type="button"
+              onClick={() => { setQuery(''); setSuggestions([]); }}
+              className="p-1 text-white/40 hover:text-white transition-colors"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
 
-        {/* Interactive Voice Orb Button */}
-        <div
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center z-10"
-          title={isListening ? "Listening... Speak city name (Click to stop)" : "Click Orb for Voice Search"}
-        >
-          <div className={`w-8 h-8 rounded-full overflow-hidden transition-all duration-300 ${isListening ? 'ring-2 ring-purple-400 scale-110 shadow-lg shadow-purple-500/40' : 'hover:scale-110 opacity-90 hover:opacity-100'}`}>
-            <VoicePoweredOrb
-              hue={isListening ? 260 : 200}
-              enableVoiceControl={isListening}
-              onVoiceDetected={setVoiceDetected}
-              onClick={startVoiceSearch}
-              className="w-full h-full"
-            />
+          {/* GPS Location Auto-detect Button */}
+          {onLocationDetect && (
+            <button
+              type="button"
+              onClick={onLocationDetect}
+              className="p-1 text-white/40 hover:text-sky-300 transition-colors"
+              title="Detect my current location (GPS)"
+            >
+              <MapPin className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Interactive Voice Orb Button */}
+          <div
+            className="w-7 h-7 flex items-center justify-center"
+            title={isListening ? "Listening... Speak city name (Click to stop)" : "Click Orb for Voice Search"}
+          >
+            <div className={`w-7 h-7 rounded-full overflow-hidden transition-all duration-300 ${isListening ? 'ring-2 ring-purple-400 scale-110 shadow-lg shadow-purple-500/40' : 'hover:scale-110 opacity-90 hover:opacity-100'}`}>
+              <VoicePoweredOrb
+                hue={isListening ? 260 : 200}
+                enableVoiceControl={isListening}
+                onVoiceDetected={setVoiceDetected}
+                onClick={startVoiceSearch}
+                className="w-full h-full"
+              />
+            </div>
           </div>
         </div>
       </form>

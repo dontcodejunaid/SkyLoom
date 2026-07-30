@@ -43,7 +43,7 @@ const LoadingSkeleton = () => (
 );
 
 const WeatherApp = () => {
-  const { weather, forecast, airQuality, loading, error, fetchByCity, fetchByCoords, searchCities } = useWeather();
+  const { weather, forecast, airQuality, loading, error, fetchByCity, fetchByCoords, fetchByIP, searchCities } = useWeather();
   const { favorites, recentCities, addFavorite, removeFavorite, isFavorite, addRecent } = useFavorites();
   const [unit, setUnit] = useState('C');
 
@@ -65,17 +65,31 @@ const WeatherApp = () => {
     catch {}
   }, [isDark]);
 
-  // Auto-detect location on mount
-  useEffect(() => {
-    if (navigator.geolocation) {
+  // Auto-detect current user location on initial mount (GPS first, fallback to IP)
+  const detectLocation = useCallback(() => {
+    if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => fetchByCoords(pos.coords.latitude, pos.coords.longitude),
-        () => fetchByCity('London')
+        (pos) => {
+          fetchByCoords(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.warn('GPS permission denied or unavailable, using IP location:', err.message);
+          fetchByIP();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 6000,
+          maximumAge: 300000, // 5 minutes cache
+        }
       );
     } else {
-      fetchByCity('London');
+      fetchByIP();
     }
-  }, []);
+  }, [fetchByCoords, fetchByIP]);
+
+  useEffect(() => {
+    detectLocation();
+  }, [detectLocation]);
 
   // Track recent searches
   const handleSearch = (city) => {
@@ -177,53 +191,60 @@ const WeatherApp = () => {
       {/* App shell */}
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-30 px-4 pt-4 pb-3">
-          <div className="max-w-3xl mx-auto">
-            <div className="glass rounded-2xl px-5 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-30 px-3 sm:px-6 pt-3 sm:pt-4 pb-3 backdrop-blur-md">
+          <div className="max-w-6xl mx-auto">
+            <div className="glass rounded-2xl p-3 sm:px-5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-4">
               {/* Official Woven SkyLoom Logo */}
               <div className="shrink-0">
                 <SkyLoomLogo size="md" />
               </div>
-              <div className="flex-1">
+
+              {/* Search Bar */}
+              <div className="flex-1 min-w-[200px]">
                 <SearchBar
                   onSearch={handleSearch}
                   searchCities={searchCities}
                   favorites={favorites}
                   recentCities={recentCities}
-                />
-              </div>
-              {/* Day / Night toggle */}
-              <div className="shrink-0" title={isDark ? 'Night mode on' : 'Day mode on'}>
-                <SkyToggle
-                  checked={isDark}
-                  onChange={setIsDark}
+                  onLocationDetect={detectLocation}
                 />
               </div>
 
-              {/* Sound toggle & Multi-language Voice Selector */}
-              <SoundToggle
-                enabled={soundEnabled}
-                onToggle={toggleSound}
-                currentLang={soundLang}
-                onChangeLang={changeLanguage}
-              />
+              {/* Action Controls Group */}
+              <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+                {/* Day / Night toggle */}
+                <div title={isDark ? 'Night mode on' : 'Day mode on'}>
+                  <SkyToggle
+                    checked={isDark}
+                    onChange={setIsDark}
+                  />
+                </div>
 
-              {/* Refresh */}
-              <button
-                id="refresh-btn"
-                onClick={() => weather && fetchByCity(weather.name)}
-                className="p-2 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-all duration-200 shrink-0"
-                title="Refresh"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
+                {/* Sound toggle & Multi-language Voice Selector */}
+                <SoundToggle
+                  enabled={soundEnabled}
+                  onToggle={toggleSound}
+                  currentLang={soundLang}
+                  onChangeLang={changeLanguage}
+                />
+
+                {/* Refresh */}
+                <button
+                  id="refresh-btn"
+                  onClick={() => weather && fetchByCity(weather.name)}
+                  className="p-2 rounded-full hover:bg-white/10 text-white/40 hover:text-white transition-all duration-200"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Main content */}
-        <main className="flex-1 px-4 pb-8">
-          <div className="max-w-3xl mx-auto space-y-4">
+        <main className="flex-1 px-3 sm:px-6 pb-8">
+          <div className="max-w-6xl mx-auto space-y-4">
 
             {/* Error */}
             <AnimatePresence>
@@ -254,48 +275,55 @@ const WeatherApp = () => {
                   transition={{ duration: 0.3 }}
                   className="space-y-4"
                 >
-                  {/* Hero */}
-                  <HeroCard
-                    weather={weather}
-                    unit={unit}
-                    onToggleUnit={setUnit}
-                    isFavorite={isFavorite(weather.name)}
-                    onToggleFavorite={handleToggleFavorite}
-                    theme={theme}
-                  />
-
-                  {/* AQI row */}
+                  {/* AQI Badge Bar */}
                   {airQuality && (
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center justify-between gap-2 glass px-4 py-2 rounded-xl flex-wrap">
                       <AQIBadge airQuality={airQuality} />
-                      <span className="text-white/30 text-xs">
-                        {weather.name}, {weather.sys.country}
+                      <span className="text-white/40 text-xs font-medium">
+                        Live station feed: {weather.name}, {weather.sys.country}
                       </span>
                     </div>
                   )}
 
-                  {/* Stat cards grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {stats.map((s) => (
-                      <StatCard key={s.label} {...s} />
-                    ))}
+                  {/* Responsive Grid System (Single column on Mobile, 2-Column Dashboard on Desktop) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+                    {/* Left Column (Hero + Hourly Chart + 5-Day Forecast) */}
+                    <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+                      <HeroCard
+                        weather={weather}
+                        unit={unit}
+                        onToggleUnit={setUnit}
+                        isFavorite={isFavorite(weather.name)}
+                        onToggleFavorite={handleToggleFavorite}
+                        theme={theme}
+                      />
+
+                      <HourlyChart forecast={forecast} unit={unit} accent={theme.accent} />
+
+                      <ForecastRow forecast={forecast} unit={unit} />
+                    </div>
+
+                    {/* Right Column (Stat Cards Grid + Sunrise/Sunset Widget) */}
+                    <div className="lg:col-span-5 xl:col-span-5 space-y-4">
+                      {/* Stat cards grid (2 cols on mobile/tablet, 2 cols on PC sidebar) */}
+                      <div className="grid grid-cols-2 gap-3">
+                        {stats.map((s) => (
+                          <StatCard key={s.label} {...s} />
+                        ))}
+                      </div>
+
+                      {/* Sunrise / Sunset */}
+                      <SunriseSunset
+                        sunrise={weather.sys.sunrise}
+                        sunset={weather.sys.sunset}
+                      />
+                    </div>
                   </div>
 
-                  {/* Sunrise / Sunset */}
-                  <SunriseSunset
-                    sunrise={weather.sys.sunrise}
-                    sunset={weather.sys.sunset}
-                  />
-
-                  {/* Hourly chart */}
-                  <HourlyChart forecast={forecast} unit={unit} accent={theme.accent} />
-
-                  {/* 5-day forecast */}
-                  <ForecastRow forecast={forecast} unit={unit} />
-
                   {/* Footer */}
-                  <div className="text-center text-white/20 text-xs pb-4">
-                    Data from OpenWeatherMap · Updated {new Date().toLocaleTimeString()}
+                  <div className="text-center text-white/30 text-xs pt-4 pb-2">
+                    SkyLoom Weather Dashboard · Data powered by OpenWeatherMap · Updated {new Date().toLocaleTimeString()}
                   </div>
                 </motion.div>
               </AnimatePresence>
